@@ -1,0 +1,75 @@
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no">
+    <meta name="description" content="Project">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="Maybe">
+    <title>Gazetteer</title>
+    <link rel="stylesheet" href="libs/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    <link rel="stylesheet" href="libs/css/leaflet.css"
+   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+   crossorigin="">
+
+    <link rel="stylesheet" href="libs/css/style.css">
+  </head>
+  <body>
+  <!-- navbar -->  
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+    <a class="navbar-brand" href="#">Gazetteer</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarsExampleDefault"> 
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="dropdown01" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Country</a>
+          <ul class="dropdown-menu scrollable-menu" role="menu" id="test" aria-labelledby="dropdown01">
+          <li><a class="dropdown-item" neo="1">Action</a></li>
+          </ul>
+        </li>
+        <!-- tmp -->
+        <li>
+          <!-- Button trigger modal-->
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalCart">Launch modal</button>
+        </li>
+        <!-- tmp -->
+      </ul>
+    </div>
+  </nav>
+<!-- Modal: modalCart stripped -->
+  <div class="modal fade" id="modalCart" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" 
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-content">
+    <!--Header-->
+    <div class="modal-header">
+      <h4 class="modal-title" id="myModalLabel">Some data</h4>
+      <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>
+    <!--Body-->
+    <div class="modal-body">
+	    <!--<table class="table"></table> table-hover"></table>-->
+	    <p id="demo"></p>
+    </div>
+    <!--Footer-->
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-primary" data-dismiss="modal">Close</button>
+    </div>
+  </div>
+  </div>
+  </div>
+<!-- Modal: modalCart stripped -->
+<div id="mapid"></div>
+<div id="preloader"></div>
+<script src="libs/js/jquery-3.5.1.min.js"></script>
+<script src="libs/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
+<script src="libs/js/leaflet.js"
+   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+   crossorigin=""></script>
+<script src="libs/js/script.js"></script>
+</body>
+</html>
