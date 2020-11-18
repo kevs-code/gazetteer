@@ -1,4 +1,5 @@
-// GOAL TIDY!
+// THIS IS A LITTLE CLEANER
+// GOALS: ADD THEMES, AREA, API, REMOVE COMMENTS, MAKE CLEANER, DISCUSS
 // CAN I MAKE THIS CLASS USEFUL?
 class MapGet {
     constructor(tileStyle = 'cycle') {
@@ -28,7 +29,7 @@ class MapGet {
     }
 }
 
-/*
+/* THEMES
 cycle
 transport
 Landscape
@@ -39,28 +40,25 @@ pioneer
 mobile-atlas
 neighbourhood
 */
+
+/*use turf.js to get area and control map zoom */
+// Map Creation Globals
 const myCrd = new MapGet('mobile-atlas');
 const attribution = myCrd.attribution;
 console.log(attribution);
 var mymap = L.map('mapid').setView([myCrd.crd.latitude, myCrd.crd.longitude], 4);
 const tiles = L.tileLayer(myCrd.tileUrl, { attribution });
-
 tiles.addTo(mymap);
 
-//globals for reference
-var globalMess;// obj.properties.name sorted countryBorders.geo.json.features obj
-var highlight;// highlight = L.geoJSON(states, { style: myStyle }).addTo(mymap);
+// Other Globals
+var globalCountryBorders;
+var highlight;
 
-
-
-//THIS LOOKS LIKE A CLASS
 function getLocation() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(success, failure);
   } else {
-    $('#demo').html("Geolocation not supported by this browser.");
-    let data = { lat: myCrd.crd.latitude, lng: myCrd.crd.longitude };
-    testCoords(data);//or just call failure();
+    failure();
   }
 }
 
@@ -72,7 +70,8 @@ function success(pos) {
 }
 
 function failure() {
-  $('#demo').html("Latitude: " + crd.latitude + "<br>Longitude: " + crd.longitude);
+  console.log("failure");
+  $('#demo').html("Latitude: " + myCrd.crd.latitude + "<br>Longitude: " + myCrd.crd.longitude);
   let data = { lat: myCrd.crd.latitude, lng: myCrd.crd.longitude };
   testCoords(data);
 }
@@ -86,18 +85,44 @@ function testCoords(data) {
 	    latitude: result.geometry.lat,
 	    longitude: result.geometry.lng
 	};
-	initializeMap(newcrd);
+	mapSetView(newcrd);
     });
 }
-//needs work to update nationally only!
-function initializeMap(crd) {
+
+async function doAjax(args) {
+    let result;
+    let result2;
+    try {
+
+        if (!args.data.iso_a2) {
+            result = await $.ajax(args);
+            args.data = { iso_a2: result['data'].trim() }
+        } 
+        
+        result2 = await $.ajax(args);
+        console.log(result2);  //return result2 removes specifice use case
+        return result2['data'][0];
+	} catch (error) {
+		console.log(error);  //error.log
+	}
+}
+
+
+function mapSetView(crd) {
     mymap.setView(new L.LatLng(crd.latitude, crd.longitude), 4);
 }
 
-//SO DOES THIS
-$.getJSON("countryBorders.geo.json", function(geo) {
-  let json  = geo.features;
+function readJsonFileToPopulate(file) {
+    $.getJSON(file, function(geo) {
+        let json  = geo.features;
+        jsonSortByName(json);
+	console.log(geo); // need data again
+        globalCountryBorders = geo;  // Global
+        populateCountryDropdown('#test', geo);
+    });
+}
 
+function jsonSortByName(json) { // specific use case
     json.sort(function(a, b){
         var nameA = a.properties.name.toUpperCase();
         var nameB = b.properties.name.toUpperCase();
@@ -109,11 +134,9 @@ $.getJSON("countryBorders.geo.json", function(geo) {
         }
         return 0;
     });
-   globalMess = geo;//could try xom
-   populateDropdownFromObjectLiteral('#test', geo);
-});
+};
 
-function populateDropdownFromObjectLiteral(selector, geo) {
+function populateCountryDropdown(selector, geo) {
     let dropMenu = $(selector);
     geo.features.map(rest => {
         let listItem =$('<li/>');
@@ -130,42 +153,24 @@ function populateDropdownFromObjectLiteral(selector, geo) {
     });
 }
 
-async function doAjax(args) {
-    let result;
-    let result2;
-    try {
-        if (!args.data.iso_a2) {
-            result = await $.ajax(args);
-            args.data = { iso_a2: result['data'].trim() }
-        } 
-        
-        result2 = await $.ajax(args);
-        console.log(result2);  
-        return result2['data'][0];
-	} catch (error) {
-		console.log(error);//error.log
-	}
-}
-
 $(document).on('click', '#test li a', function() {
-    if (highlight) {
+    if (highlight) { // teardown
     mymap.removeLayer(highlight);
     }
     console.log('hello');
     console.log($(this).text());
-    console.log($(this).attr("iso_a2"));
     let data = { iso_a2: $(this).attr("iso_a2") };
     testCoords(data);
-   //test 
-   const dropItems = globalMess.features.map(rest => {//is dropItems live still instead
+    //get newPolygon belongs in a function
+    globalCountryBorders.features.map(rest => {
 	if(rest.properties.iso_a2 == $(this).attr("iso_a2")) {
-        let states = {
-            "type": "Feature",
-            "properties": rest.properties,
-            "geometry": rest.geometry
-	}
-	console.log(states);
-	updateMap(states);
+            let states = {
+                "type": "Feature",
+                "properties": rest.properties,
+                "geometry": rest.geometry
+	    }
+	    console.log(states);
+	    updateMap(states);
 	}
     });
 });
@@ -173,11 +178,13 @@ $(document).on('click', '#test li a', function() {
 function updateMap(states) {
 var myStyle = { "color": "#0000FF" };
 highlight = L.geoJSON(states, { style: myStyle }).addTo(mymap);
+//var area = L.GeometryUtil.geodesicArea(highlight.getLatLngs());
+//console.log(area);//have some markers
 }
 
-// recommended approach to document ready!
 $(function () {
     $('#preloader').hide();
+    readJsonFileToPopulate('countryBorders.geo.json'); 
     getLocation();
 }); 
 
