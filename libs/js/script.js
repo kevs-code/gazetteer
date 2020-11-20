@@ -1,15 +1,18 @@
-// GOALS: ADD THEMES, API RESPONSE MODAL DETAILS, USE CENTROID OR RETURN COORDS VALUE TO PLACE COUNTRTFLAG.io with L.marker return to cleaner code
-
-// SETTING INITIAL VIEW BY CURRENT country LOCATION NEEDS changing from mapSetView to polygon mapfitBounds like the rest
-
-// AS - IDEA TO ADD AREA, THEN BUBBLESORT AND CLUSTER ZOOM LEVEL BEFORE CALLING mapSetView ALREADY DONE BETTER BY MAPFIT BOUNDS
-
+/*ugly semi pointless class*/
 class MapGet {
-    constructor(tileStyle = 'cycle') {
+    constructor(themes) {
       this._dataLink = '<a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
       this._mapLink = '<a href="http://www.thunderforest.com">Thunderforest</a>';
       this._attribution = 'Maps &copy; ' +this._mapLink+ ', Data &copy; ' +this._dataLink;
-      this._tileUrl = 'https://tile.thunderforest.com/' + tileStyle + '/{z}/{x}/{y}.png';
+     
+      this._tileUrl = 'https://tile.thunderforest.com/mobile-atlas/{z}/{x}/{y}.png'; 
+      this._baseMaps = {};
+      themes.map(theme =>{
+	  let tile = 'https://tile.thunderforest.com/' + theme + '/{z}/{x}/{y}.png';
+	  let attribution = this._attribution;
+          this._baseMaps[theme] = L.tileLayer(tile, {attribution});
+      });     
+
       this._latitude = 54.7023545;
       this._longitude = -3.2765753;
       this._ajaxUrl = "libs/php/getCountryCode.php";
@@ -30,47 +33,67 @@ class MapGet {
           longitude: this._longitude
       }
     }
+   get baseMaps() {
+     return this._baseMaps;
+   }
 }
 
-/* THEMES
-cycle
-transport
-Landscape
-outdoors
-transport-dark
-spinal-map
-pioneer
-mobile-atlas
-neighbourhood
-*/
+const themes = ['cycle', 'transport', 'landscape', 'outdoors', 'transport-dark', 'spinal-map', 'pioneer', 'mobile-atlas', 'neighbourhood'];
+// messy code
+// Map Creation Globals
+const myCrd = new MapGet(themes);
+const attribution = myCrd.attribution;
+const baseMaps = myCrd.baseMaps;
+let cycle = 'https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png'; 
+const defaultTile = L.tileLayer(cycle, { attribution });
 
-/* THIS WILL FIX MAP CONTROLS
-
-var map = L.map('map', {
-    maxZoom: 20,
-    minZoom: 6,
-    zoomControl: false
+//
+var mymap = L.map('mapid', {
+    center: [myCrd.crd.latitude, myCrd.crd.longitude],
+    maxZoom: 18,
+    Zoom: 4,
+    minZoom: 3,
+    zoomControl: false,
+    layers: defaultTile
 });
+
+mymap.setView(new L.LatLng(myCrd.crd.latitude, myCrd.crd.longitude), 4);
+
 
 L.control.zoom({
     position: 'bottomright'
-}).addTo(map);
+}).addTo(mymap);
 
-*/
+//L.control.layers(baseMaps, overlayMaps).addTo(map);
+L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(mymap);
 
-/*use turf.js to get area and control map zoom not required now add polygon to initial country instead of setview, choose centroid instead for map saves pan time rest of testCoords good for getting opencage api return still*/
 
-// Map Creation Globals
-const myCrd = new MapGet('mobile-atlas');
-const attribution = myCrd.attribution;
-console.log(attribution);
-var mymap = L.map('mapid').setView([myCrd.crd.latitude, myCrd.crd.longitude], 4);
-const tiles = L.tileLayer(myCrd.tileUrl, { attribution });
-tiles.addTo(mymap);
+function superScary(data) {    
+    if (highlight) { // teardown
+        mymap.removeLayer(highlight);
+    }
+    stinkyPolygons(data);
+}
+
+function stinkyPolygons(data) {
+    testAPI(data);//standard call
+    globalCountryBorders.features.map(rest => {
+        if(rest.properties.iso_a2 == data.iso_a2) {
+            let states = {
+                "type": "Feature",
+                "properties": rest.properties,
+                "geometry": rest.geometry
+            }
+            let centroid = getCentroid(rest.geometry.coordinates, data.iso_a2);
+            updateMap(states);
+        }
+    });
+}
 
 // Other Globals
 var globalCountryBorders;
 var highlight;
+var marker1;
 
 function getLocation() {
   if (navigator.geolocation) {
@@ -84,27 +107,35 @@ function success(pos) {
   let crd = pos.coords;
   $('#demo').html("Latitude: " + crd.latitude + "<br>Longitude: " + crd.longitude);
   let data = { lat: crd.latitude, lng: crd.longitude };
-  testCoords(data);
+  testAPI(data);//first call
 }
 
 function failure() {
   console.log("failure");
   $('#demo').html("Latitude: " + myCrd.crd.latitude + "<br>Longitude: " + myCrd.crd.longitude);
   let data = { lat: myCrd.crd.latitude, lng: myCrd.crd.longitude };
-  testCoords(data);
+  testAPI(data);//first call
 }
 
-
-function testCoords(data) {
+/*rethink needed*/
+function testAPI(data) {
     let args = { url: myCrd.ajaxUrl, type: 'POST', dataType: 'json', data: data };
     console.log('start');
+    
     doAjax(args).then(result => {
+    console.log(result);
+    /*do something else
         let newcrd = {
-	    latitude: result.geometry.lat,
-	    longitude: result.geometry.lng
-	};
-	mapSetView(newcrd);
+	    latitude: result['data'][0].geometry.lat,
+	    longitude: result['data'][0].geometry.lng
+	    };
+    mapSetView(newcrd);
+    */
     });
+}
+
+function mapSetView(crd) {
+    mymap.setView(new L.LatLng(crd.latitude, crd.longitude), 4);
 }
 
 async function doAjax(args) {
@@ -115,33 +146,26 @@ async function doAjax(args) {
         if (!args.data.iso_a2) {
             result = await $.ajax(args);
             args.data = { iso_a2: result['data'].trim() }
+            return superScary(args.data);
         } 
         
         result2 = await $.ajax(args);
-        console.log(result2);  //return result2 removes specifice use case
-        return result2['data'][0];
+        return result2;
 	} catch (error) {
 		console.log(error);  //error.log
 	}
-}
-
-
-function mapSetView(crd) {
-    mymap.setView(new L.LatLng(crd.latitude, crd.longitude), 4);
 }
 
 function readJsonFileToPopulate(file) {
     $.getJSON(file, function(geo) {
         let json  = geo.features;
         jsonSortByName(json);
-	console.log(geo); // need data again
         globalCountryBorders = geo;  // Global
         populateCountryDropdown('#test', geo);
     });
 }
-//investigate merge sort neumann etc
-function jsonSortByName(json) { // specific use case
-    json.sort(function(a, b){//bubble sort
+function jsonSortByName(json) { // specific use case - meh!
+    json.sort(function(a, b){
         var nameA = a.properties.name.toUpperCase();
         var nameB = b.properties.name.toUpperCase();
         if (nameA < nameB) {
@@ -172,71 +196,41 @@ function populateCountryDropdown(selector, geo) {
 }
 
 $(document).on('click', '#test li a', function() {
-    if (highlight) { // teardown
-    mymap.removeLayer(highlight);
-    }
     console.log('hello');
     console.log($(this).text());
     let data = { iso_a2: $(this).attr("iso_a2") };
-    //testCoords(data);//still needed for api right!
-    // reinventing the wheel not needed as mapfitbounds does better than this with zoom by area, bubble sort, and cluster would.
-
-    //get newPolygon belongs in a function
-    globalCountryBorders.features.map(rest => {
-	if(rest.properties.iso_a2 == $(this).attr("iso_a2")) {
-            let states = {
-                "type": "Feature",
-                "properties": rest.properties,
-                "geometry": rest.geometry
-	    }
-            console.log(rest.geometry.coordinates);
-	    let area = getAreaBasic(rest.geometry.coordinates);
-            console.log(area);
-	    
-	    console.log(states);
-	    updateMap(states);
-	}
-    });
+    superScary(data);
 });
 
-/* this will add flags ...
-<img src="https://www.countryflags.io/{iso_a2}/{option}/64.png">
-option = flat or shiny
-var marker1 = L.marker([single_coord_pair], {icon: blackIcon});
-var marker2 = L.marker([single_coord_pair], {icon: img src=country.io});
-
-marker1.addTo(map)
-
-or ... featureGroup extends layergroup look at doc
-
-var featureGroup = L.featureGroup([marker1, marker2 ...]).addTo(map);
-*/ 
-
-
-
-
+// meh
+var myIcon;
+function getFlag(cid) {
+let imgUrl = `http://www.countryflags.io/${cid}/shiny/64.png`;
+myIcon = L.icon({
+    iconUrl: imgUrl
+});
+}
+//mmm meh
 function updateMap(states) {
 var myStyle = { "color": "#0000FF" };
 highlight = L.geoJSON(states, { style: myStyle }).addTo(mymap);
-//seen the light
 mymap.fitBounds(highlight.getBounds());//, {padding: {20 ,20}});
 }
-
-// this is the wrong way to go try map.fitBounds();
-function getAreaBasic(coord) {
-    let areaSum = 0;
-    if (coord.length > 1) {
-        coord.map(region => {
-	    let polygon = turf.helpers.polygon(region);
-	    areaSum += turf.area(polygon);
-        });
-	return Math.round(areaSum/ 10 ** 6);// polygon draw size km**2
-    } else {
-        let polygon = turf.helpers.polygon(coord);
-        return Math.round(turf.area(polygon)/ 10 ** 6);
+//meh
+function getCentroid(coord, smurf) {
+    if (marker1) {
+        mymap.removeLayer(marker1);
     }
+    obj = (coord.length > 1) ? coord[0] : coord;
+    let polygon = turf.helpers.polygon(obj);
+    let centroid = turf.centroid(polygon);
+    getFlag(smurf);
+    marker1 = L.marker([centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]], {icon: myIcon} );
+    marker1.addTo(mymap);
+
+    return centroid;
 }
-//above maybe useful for centroid instead?
+
 $(function () {
     $('#preloader').hide();
     readJsonFileToPopulate('countryBorders.geo.json'); 
