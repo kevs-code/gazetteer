@@ -1,170 +1,124 @@
-/*ugly semi pointless class*/
-class MapGet {
-    constructor(themes) {
-      this._dataLink = '<a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
-      this._mapLink = '<a href="http://www.thunderforest.com">Thunderforest</a>';
-      this._attribution = 'Maps &copy; ' +this._mapLink+ ', Data &copy; ' +this._dataLink;
-     
-      this._tileUrl = 'https://tile.thunderforest.com/mobile-atlas/{z}/{x}/{y}.png'; 
-      this._baseMaps = {};
-      themes.map(theme =>{
-	  let tile = 'https://tile.thunderforest.com/' + theme + '/{z}/{x}/{y}.png';
-	  let attribution = this._attribution;
-          this._baseMaps[theme] = L.tileLayer(tile, {attribution});
-      });     
-
-      this._latitude = 54.7023545;
-      this._longitude = -3.2765753;
-      this._ajaxUrl = "libs/php/getCountryCode.php";
-    } 
-    get tileUrl() {
-      return this._tileUrl;
-    }
-    get attribution() {
-      return this._attribution;
-    }
-
-    get ajaxUrl() {
-      return this._ajaxUrl;
-    }
-    get crd() {  
-      return {
-          latitude: this._latitude,
-          longitude: this._longitude
-      }
-    }
-   get baseMaps() {
-     return this._baseMaps;
-   }
-}
-
-const themes = ['cycle', 'transport', 'landscape', 'outdoors', 'transport-dark', 'spinal-map', 'pioneer', 'mobile-atlas', 'neighbourhood'];
-// messy code
-// Map Creation Globals
-const myCrd = new MapGet(themes);
-const attribution = myCrd.attribution;
-const baseMaps = myCrd.baseMaps;
-let cycle = 'https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png'; 
-const defaultTile = L.tileLayer(cycle, { attribution });
-
-//
-var mymap = L.map('mapid', {
-    center: [myCrd.crd.latitude, myCrd.crd.longitude],
-    maxZoom: 18,
-    Zoom: 4,
-    minZoom: 3,
-    zoomControl: false,
-    layers: defaultTile
-});
-
-mymap.setView(new L.LatLng(myCrd.crd.latitude, myCrd.crd.longitude), 4);
-
-
-L.control.zoom({
-    position: 'bottomright'
-}).addTo(mymap);
-
-//L.control.layers(baseMaps, overlayMaps).addTo(map);
-L.control.layers(baseMaps, null, {position: 'bottomleft'}).addTo(mymap);
-
-
-function superScary(data) {    
-    if (highlight) { // teardown
-        mymap.removeLayer(highlight);
-    }
-    stinkyPolygons(data);
-}
-
-function stinkyPolygons(data) {
-    testAPI(data);//standard call
-    globalCountryBorders.features.map(rest => {
-        if(rest.properties.iso_a2 == data.iso_a2) {
-            let states = {
-                "type": "Feature",
-                "properties": rest.properties,
-                "geometry": rest.geometry
-            }
-            let centroid = getCentroid(rest.geometry.coordinates, data.iso_a2);
-            updateMap(states);
-        }
+//setup map
+const BASE = (function initialize() {
+    const dataLink = '<a href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
+    const mapLink = '<a href="http://www.thunderforest.com">Thunderforest</a>';
+    const attribution = 'Maps &copy; ' +mapLink+ ', Data &copy; ' +dataLink;
+    const tileThemes = ['cycle', 'transport', 'landscape', 'outdoors', 'transport-dark',
+	                'spinal-map', 'pioneer', 'mobile-atlas', 'neighbourhood'];
+    const tiles = {};
+    tileThemes.map(theme =>{
+	let tile = 'https://tile.thunderforest.com/' + theme + '/{z}/{x}/{y}.png';
+        tiles[theme] = L.tileLayer(tile, {attribution});
     });
-}
-
-// Other Globals
-var globalCountryBorders;
-var highlight;
-var marker1;
+    let lmap = L.map('mapid', {maxZoom: 18, minZoom: 3,
+	                zoomControl: false, layers: tiles.cycle});                           
+    L.control.zoom({position: 'bottomright'}).addTo(lmap);
+    L.control.layers(tiles, null, {position: 'bottomleft'}).addTo(lmap);
+    const coord = [54.7023545, -3.2765753];
+    lmap.setView(new L.LatLng(coord[0], coord[1]), 4);   
+    return {       
+        lmap: lmap,
+        coord: coord
+    }
+}());
 
 function getLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(success, failure);
-  } else {
-    failure();
-  }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(success, failure);
+    } else {
+      failure();
+    }
 }
 
 function success(pos) {
-  let crd = pos.coords;
-  $('#demo').html("Latitude: " + crd.latitude + "<br>Longitude: " + crd.longitude);
-  let data = { lat: crd.latitude, lng: crd.longitude };
-  testAPI(data);//first call
+    let crd = pos.coords;
+    let data = { lat: crd.latitude, lng: crd.longitude };
+    testAPI(data);
 }
-
+  
 function failure() {
-  console.log("failure");
-  $('#demo').html("Latitude: " + myCrd.crd.latitude + "<br>Longitude: " + myCrd.crd.longitude);
-  let data = { lat: myCrd.crd.latitude, lng: myCrd.crd.longitude };
-  testAPI(data);//first call
+    let data = { lat: BASE.coord[0], lng: BASE.coord[1] };
+    testAPI(data);
 }
 
-/*rethink needed*/
-function testAPI(data) {
-    let args = { url: myCrd.ajaxUrl, type: 'POST', dataType: 'json', data: data };
-    console.log('start');
+//a callback solution to global json(or just use BASE)
+function readJsonFileToPopulate(file, callback, data) {
+    let result;
+    result = $.getJSON(file, function(geo) {
+        jsonSortByName(geo.features);        
+        return geo;
+    });
     
-    doAjax(args).then(result => {
-    console.log(result);
-    /*do something else
-        let newcrd = {
-	    latitude: result['data'][0].geometry.lat,
-	    longitude: result['data'][0].geometry.lng
-	    };
-    mapSetView(newcrd);
-    */
+    result.then(res => {
+        if (typeof callback === "function") {
+            callback(res, data);
+        };
     });
 }
+//goes anywhere
+$(document).on('click', '#test li a', function() {
+    console.log($(this).text());
+    let data = { iso_a2: $(this).attr("iso_a2"), index: $(this).attr("index")};
+    plotBorders(data);
+});
+//let states = BASE.json.features[data.index];//instead of callback 
+function plotBorders(data) {
+    if (BASE.border) {
+        BASE.lmap.removeLayer(BASE.border);
+    }
+    testAPI(data);
+    readJsonFileToPopulate('countryBorders.geo.json', newOne, data);  
+}
+//some renaming is required
+function newOne(res, data) {
+    if(data.index) {	
+    	let states = res.features[data.index];
+	updateMap(states);
+    } else {
+        res.features.map((feature) => {
+	        if (feature.properties.iso_a2 === data.iso_a2) {
+	            let states = feature;
+		        updateMap(states);
+	        }
+	    });       
+    }
+}
 
-function mapSetView(crd) {
-    mymap.setView(new L.LatLng(crd.latitude, crd.longitude), 4);
+function updateMap(states) {
+    var myStyle = { "color": "#0000FF" };
+    BASE.border = L.geoJSON(states, { style: myStyle }).addTo(BASE.lmap);
+    BASE.lmap.fitBounds(BASE.border.getBounds());//, {padding: [20 ,20]});
+}
+
+function testAPI(data) {
+    let ajaxUrl = "libs/php/getCountryCode.php";
+    let args = { url: ajaxUrl, type: 'POST', dataType: 'json', data: data };
+    
+    doAjax(args).then(result => {
+    if (result) { 
+        console.log(result);//this works
+    }
+    });
 }
 
 async function doAjax(args) {
     let result;
     let result2;
     try {
-
         if (!args.data.iso_a2) {
             result = await $.ajax(args);
             args.data = { iso_a2: result['data'].trim() }
-            return superScary(args.data);
+            return plotBorders(args.data);
         } 
-        
+
         result2 = await $.ajax(args);
         return result2;
 	} catch (error) {
-		console.log(error);  //error.log
-	}
+		console.log(error);
+        }
 }
 
-function readJsonFileToPopulate(file) {
-    $.getJSON(file, function(geo) {
-        let json  = geo.features;
-        jsonSortByName(json);
-        globalCountryBorders = geo;  // Global
-        populateCountryDropdown('#test', geo);
-    });
-}
-function jsonSortByName(json) { // specific use case - meh!
+function jsonSortByName(json) {
     json.sort(function(a, b){
         var nameA = a.properties.name.toUpperCase();
         var nameB = b.properties.name.toUpperCase();
@@ -178,61 +132,28 @@ function jsonSortByName(json) { // specific use case - meh!
     });
 };
 
-function populateCountryDropdown(selector, geo) {
-    let dropMenu = $(selector);
-    geo.features.map(rest => {
+function populateCountryDropdown(geo) {
+    let dropMenu = $('#test');
+
+    geo.features.map((rest, index) => {
         let listItem =$('<li/>');
         let row = $('<a/>');
         row.attr({
             "class": "dropdown-item",
             "iso_a2": rest.properties.iso_a2,
 		    "iso_a3": rest.properties.iso_a3,
-		    "iso_n3": rest.properties.iso_n3
-            });
+		    "iso_n3": rest.properties.iso_n3,
+		    "index": index
+            });    
          row.html(rest.properties.name);
          listItem.append(row);
          dropMenu.append(listItem);
     });
 }
 
-$(document).on('click', '#test li a', function() {
-    console.log('hello');
-    console.log($(this).text());
-    let data = { iso_a2: $(this).attr("iso_a2") };
-    superScary(data);
-});
-
-// meh
-var myIcon;
-function getFlag(cid) {
-let imgUrl = `http://www.countryflags.io/${cid}/shiny/64.png`;
-myIcon = L.icon({
-    iconUrl: imgUrl
-});
-}
-//mmm meh
-function updateMap(states) {
-var myStyle = { "color": "#0000FF" };
-highlight = L.geoJSON(states, { style: myStyle }).addTo(mymap);
-mymap.fitBounds(highlight.getBounds());//, {padding: {20 ,20}});
-}
-//meh
-function getCentroid(coord, smurf) {
-    if (marker1) {
-        mymap.removeLayer(marker1);
-    }
-    obj = (coord.length > 1) ? coord[0] : coord;
-    let polygon = turf.helpers.polygon(obj);
-    let centroid = turf.centroid(polygon);
-    getFlag(smurf);
-    marker1 = L.marker([centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]], {icon: myIcon} );
-    marker1.addTo(mymap);
-
-    return centroid;
-}
 
 $(function () {
     $('#preloader').hide();
-    readJsonFileToPopulate('countryBorders.geo.json'); 
+    readJsonFileToPopulate('countryBorders.geo.json', populateCountryDropdown); 
     getLocation();
-}); 
+})
